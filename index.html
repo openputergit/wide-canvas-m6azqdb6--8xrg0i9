@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Room Reservation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .room {
+            aspect-ratio: 1;
+            transition: all 0.3s ease;
+        }
+
+        .room:hover {
+            transform: scale(1.05);
+        }
+
+        .floor {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+        }
+
+        .floor-10 {
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .selected {
+            animation: pulse 1s infinite;
+            border: 2px solid #4CAF50;
+        }
+
+        .occupied {
+            background-color: #ff4444 !important;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto mb-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Hotel Room Reservation System</h1>
+        <p class="text-gray-600">10 Floors | 97 Rooms | Smart Booking System</p>
+    </header>
+
+    <!-- Booking Controls -->
+    <div class="max-w-6xl mx-auto mb-8">
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Number of Rooms</label>
+                    <input type="number" id="roomCount" min="1" max="5" value="1" 
+                           class="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="bookRooms()" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        Book Rooms
+                    </button>
+                    <button onclick="generateRandomOccupancy()" 
+                            class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                        Random Occupancy
+                    </button>
+                    <button onclick="resetBookings()" 
+                            class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                        Reset All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Display -->
+            <div class="mt-4 p-4 bg-gray-50 rounded-md">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <span class="text-sm text-gray-600">Selected Rooms:</span>
+                        <span id="selectedRooms" class="font-semibold ml-2">None</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-600">Total Travel Time:</span>
+                        <span id="travelTime" class="font-semibold ml-2">0 minutes</span>
+                    </div>
+                    <div>
+                        <span class="text-sm text-gray-600">Available Rooms:</span>
+                        <span id="availableRooms" class="font-semibold ml-2">97</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hotel Visualization -->
+    <div id="hotelContainer" class="max-w-6xl mx-auto space-y-4">
+        <!-- Floors will be generated here -->
+    </div>
+
+    <script>
+        const hotel = {};
+        let selectedRooms = new Set();
+
+        function initializeHotel() {
+            const container = document.getElementById('hotelContainer');
+            container.innerHTML = '';
+
+            // Create floors 1-9
+            for (let floor = 9; floor >= 1; floor--) {
+                const floorDiv = document.createElement('div');
+                floorDiv.className = 'bg-white p-4 rounded-lg shadow-md';
+                floorDiv.innerHTML = `
+                    <h2 class="text-lg font-semibold mb-2">Floor ${floor}</h2>
+                    <div class="floor" id="floor-${floor}"></div>
+                `;
+                container.appendChild(floorDiv);
+
+                const floorGrid = document.getElementById(`floor-${floor}`);
+                for (let room = 1; room <= 10; room++) {
+                    const roomNumber = floor * 100 + room;
+                    createRoomElement(floorGrid, roomNumber);
+                    hotel[roomNumber] = { floor, position: room, occupied: false };
+                }
+            }
+
+            // Create floor 10 separately
+            const floor10Div = document.createElement('div');
+            floor10Div.className = 'bg-white p-4 rounded-lg shadow-md';
+            floor10Div.innerHTML = `
+                <h2 class="text-lg font-semibold mb-2">Floor 10</h2>
+                <div class="floor floor-10" id="floor-10"></div>
+            `;
+            container.insertBefore(floor10Div, container.firstChild);
+
+            const floor10Grid = document.getElementById('floor-10');
+            for (let room = 1; room <= 7; room++) {
+                const roomNumber = 1000 + room;
+                createRoomElement(floor10Grid, roomNumber);
+                hotel[roomNumber] = { floor: 10, position: room, occupied: false };
+            }
+
+            updateStats();
+        }
+
+        function createRoomElement(container, roomNumber) {
+            const room = document.createElement('div');
+            room.className = 'room bg-white border rounded-md p-2 text-center cursor-pointer hover:bg-gray-50';
+            room.textContent = roomNumber;
+            room.onclick = () => toggleRoomSelection(roomNumber);
+            container.appendChild(room);
+        }
+
+        function toggleRoomSelection(roomNumber) {
+            const roomElement = document.querySelector(`div:contains('${roomNumber}')`);
+            if (hotel[roomNumber].occupied) {
+                showAlert('This room is occupied!', 'error');
+                return;
+            }
+
+            if (selectedRooms.has(roomNumber)) {
+                selectedRooms.delete(roomNumber);
+                roomElement.classList.remove('selected');
+            } else {
+                if (selectedRooms.size >= 5) {
+                    showAlert('Maximum 5 rooms can be selected!', 'error');
+                    return;
+                }
+                selectedRooms.add(roomNumber);
+                roomElement.classList.add('selected');
+            }
+            updateStats();
+        }
+
+        function calculateTravelTime() {
+            if (selectedRooms.size <= 1) return 0;
+
+            const rooms = Array.from(selectedRooms).map(num => hotel[num]);
+            let totalTime = 0;
+
+            for (let i = 0; i < rooms.length - 1; i++) {
+                const current = rooms[i];
+                const next = rooms[i + 1];
+                
+                // Vertical travel time
+                const floorDiff = Math.abs(current.floor - next.floor);
+                totalTime += floorDiff * 2;
+
+                // Horizontal travel time
+                if (current.floor === next.floor) {
+                    totalTime += Math.abs(current.position - next.position);
+                }
+            }
+
+            return totalTime;
+        }
+
+        function bookRooms() {
+            const count = parseInt(document.getElementById('roomCount').value);
+            if (count < 1 || count > 5) {
+                showAlert('Please select between 1 and 5 rooms', 'error');
+                return;
+            }
+
+            // Find optimal rooms
+            const availableRooms = findOptimalRooms(count);
+            if (!availableRooms) {
+                showAlert('Not enough available rooms!', 'error');
+                return;
+            }
+
+            // Mark rooms as occupied
+            availableRooms.forEach(roomNumber => {
+                hotel[roomNumber].occupied = true;
+                const roomElement = document.querySelector(`div:contains('${roomNumber}')`);
+                roomElement.classList.add('occupied');
+            });
+
+            selectedRooms.clear();
+            updateStats();
+            showAlert('Rooms booked successfully!', 'success');
+        }
+
+        function findOptimalRooms(count) {
+            // First try to find rooms on the same floor
+            for (let floor = 1; floor <= 10; floor++) {
+                const floorRooms = Object.keys(hotel)
+                    .filter(num => hotel[num].floor === floor && !hotel[num].occupied)
+                    .slice(0, count);
+                
+                if (floorRooms.length === count) {
+                    return floorRooms;
+                }
+            }
+
+            // If not possible, find closest available rooms
+            const availableRooms = Object.keys(hotel)
+                .filter(num => !hotel[num].occupied)
+                .sort((a, b) => {
+                    const roomA = hotel[a];
+                    const roomB = hotel[b];
+                    return roomA.floor - roomB.floor || roomA.position - roomB.position;
+                })
+                .slice(0, count);
+
+            return availableRooms.length === count ? availableRooms : null;
+        }
+
+        function generateRandomOccupancy() {
+            Object.keys(hotel).forEach(roomNumber => {
+                hotel[roomNumber].occupied = Math.random() < 0.5;
+                const roomElement = document.querySelector(`div:contains('${roomNumber}')`);
+                roomElement.classList.toggle('occupied', hotel[roomNumber].occupied);
+            });
+            selectedRooms.clear();
+            updateStats();
+        }
+
+        function resetBookings() {
+            Object.keys(hotel).forEach(roomNumber => {
+                hotel[roomNumber].occupied = false;
+                const roomElement = document.querySelector(`div:contains('${roomNumber}')`);
+                roomElement.classList.remove('occupied', 'selected');
+            });
+            selectedRooms.clear();
+            updateStats();
+            showAlert('All bookings reset!', 'success');
+        }
+
+        function updateStats() {
+            document.getElementById('selectedRooms').textContent = 
+                selectedRooms.size ? Array.from(selectedRooms).join(', ') : 'None';
+            document.getElementById('travelTime').textContent = 
+                `${calculateTravelTime()} minutes`;
+            document.getElementById('availableRooms').textContent = 
+                Object.values(hotel).filter(room => !room.occupied).length;
+        }
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert ${type === 'error' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`;
+            alert.textContent = message;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 3000);
+        }
+
+        // jQuery-like contains selector
+        HTMLElement.prototype.contains = function(text) {
+            return this.textContent === text;
+        };
+
+        // Initialize the hotel
+        initializeHotel();
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
